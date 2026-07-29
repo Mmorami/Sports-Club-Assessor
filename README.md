@@ -1,6 +1,6 @@
 # Championship Squad Tracker
 
-> A deterministic data pipeline and research dashboard for EFL Championship football analysis.
+> A deterministic data pipeline and CLI for EFL Championship club and league analysis.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
@@ -9,9 +9,9 @@
 
 ## Mission
 
-Championship Squad Tracker is a **data-first, deterministic aggregator** built for sports journalists, analysts, and researchers who need reliable, reproducible insights into EFL Championship squads during transfer windows.
+Championship Squad Tracker is a **data-first, deterministic aggregator** built for sports journalists, analysts, and researchers who need reliable, reproducible insights into EFL Championship squads.
 
-It collects, normalises, and structures transfer activity, player performance metrics, medical records, and positional depth data — **without relying on AI predictions or probabilistic models**. Every output is traceable back to its source and fully reproducible.
+It collects transfer activity, player performance stats, and medical records, validates them with Pydantic v2 schemas, scores each club across financial, tactical, and injury dimensions, and produces both single-club and league-wide reports — **without relying on AI predictions or probabilistic models**. Every output is traceable back to its source and fully reproducible from mock or live data.
 
 ---
 
@@ -20,74 +20,54 @@ It collects, normalises, and structures transfer activity, player performance me
 ```mermaid
 flowchart LR
     subgraph Collectors
-        TC[Transfer Collector]
-        SC[Stats Collector]
-        MC[Medical Collector]
+        TC[TransferCollector]
+        SC[StatsCollector]
+        MC[MedicalCollector]
+        GC[ManagerClubCollector]
     end
 
-    subgraph Normalisation
-        VM[Pydantic v2 Validation]
-        FL[Filtering & Processing]
-        SV[Squad Vacuum Calculator]
+    subgraph Pipeline
+        EP[EFLDataPipeline]
+        SP[squad_processor]
     end
 
-    subgraph Storage
-        RJ[Raw JSON Files]
-        PJ[Processed JSON Files]
+    subgraph Scoring
+        ME[MatrixEngine]
+        FS[FinancialScorer]
+        TS[TacticalScorer]
+        IS[InjuryScorer]
     end
 
-    subgraph Dashboard
-        UI[Visualisation UI]
+    subgraph Output
+        REP[ClubReporter]
+        CLI[cli.py]
     end
 
-    TC --> VM
-    SC --> VM
-    MC --> VM
-    VM --> FL
-    FL --> SV
-    FL --> RJ
-    SV --> PJ
-    RJ --> UI
-    PJ --> UI
+    TC --> EP
+    SC --> EP
+    MC --> EP
+    GC --> EP
+    EP --> SP
+    SP --> ME
+    ME --> FS
+    ME --> TS
+    ME --> IS
+    ME --> REP
+    REP --> CLI
 ```
 
-**Data Flow**: `Data Sources → Collectors → Pydantic Validation → Filtering/Processing → Structured JSON → Dashboard UI`
+For league-scale runs, `LeaguePipeline` orchestrates `EFLDataPipeline` + `MatrixEngine` per club, backed by `CacheManager` — see [docs/LEAGUE_RUNNER.md](docs/LEAGUE_RUNNER.md) for details.
+
+**Data flow**: `Collectors → EFLDataPipeline → Pydantic validation → MatrixEngine scoring → ClubReporter → Terminal / Markdown`
 
 ---
 
-## Roadmap
-
-### Section 1 — Foundation
-- [x] Repository scaffolding and documentation
-- [ ] Pydantic v2 data models (`Player`, `Transfer`, `PlayerStats`, `MedicalHistory`, `Club`)
-- [ ] Abstract collector interfaces (`BaseCollector`, `BaseDataProvider`)
-- [ ] Processing module (`filter_relevant_players`, `calculate_squad_vacuum`)
-- [ ] Local JSON storage engine
-- [ ] Unit test suite
-
-### Section 2 — Data Collection
-- [ ] Mock data provider with representative Championship datasets
-- [ ] Live data provider adapters (web scraping / API integration)
-- [ ] Pipeline orchestrator (`IngestionPipeline`)
-
-### Section 3 — Analysis & Visualisation
-- [ ] Squad depth analysis module
-- [ ] Transfer window impact reports
-- [ ] Interactive dashboard UI
-
-### Section 4 — Production Hardening
-- [ ] CI/CD pipeline
-- [ ] Data validation and integrity checks
-- [ ] Documentation site
-
----
-
-## Local Setup
+## Quickstart
 
 ### Prerequisites
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- pip
 
 ### Installation
 
@@ -103,24 +83,81 @@ source .venv/bin/activate  # macOS/Linux
 
 # Install dependencies
 pip install -r requirements.txt
+```
 
-# Run the test suite
+### Running Tests
+
+All unit tests run against fixtures in `data/mock/` — no live network calls are made.
+
+```bash
 pytest --verbose
 ```
 
-### Project Structure
+---
+
+## Single Club Analysis
+
+Run a full pipeline + scoring pass for one club using mock fixtures:
+
+```bash
+python -m src.cli analyze --club-id c_399 --mock
+```
+
+Export a Markdown report alongside the terminal summary:
+
+```bash
+python -m src.cli analyze --club-id c_399 --mock --output reports/c_399_report.md
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--club-id` | Club identifier to analyze (required). Must match an entry in the mock/live club registry. |
+| `--mock` / `--no-mock` | Use local fixtures (default) or live collectors. |
+| `--output` | File or directory path to export a Markdown report to. |
+
+---
+
+## League Analysis
+
+Run the full league across every club, using the cache to avoid redundant collection:
+
+```bash
+python -m src.cli analyze-league --league championship --season 2026-2027
+```
+
+Force a full re-collection, bypassing any cached club data:
+
+```bash
+python -m src.cli analyze-league --league championship --season 2026-2027 --force-refresh
+```
+
+See [docs/LEAGUE_RUNNER.md](docs/LEAGUE_RUNNER.md) for cache internals, TTL behavior, and report formats.
+
+---
+
+## Project Structure
 
 ```
 Sports Club Assessor/
 ├── src/
-│   ├── models/          # Pydantic v2 data schemas
-│   ├── collectors/      # Modular data collection interfaces
-│   ├── processing/      # Filtering, metrics, and analysis
-│   ├── storage/         # Local JSON persistence
-│   └── pipeline.py      # Ingestion orchestrator
-├── tests/               # Unit and integration tests
-├── data/                # Raw and processed data output (gitignored)
-├── docs/                # Architecture and schema documentation
+│   ├── cache.py             # CacheManager: TTL-based file cache for league runs
+│   ├── cli.py               # CLI entry point (analyze / analyze-league)
+│   ├── pipeline.py          # EFLDataPipeline — single-club orchestration
+│   ├── league_pipeline.py   # LeaguePipeline — league-wide orchestration + caching
+│   ├── reporter.py          # ClubReporter — terminal + Markdown output
+│   ├── schemas.py           # Pydantic v2 data models
+│   ├── collectors/          # Transfer, stats, medical, and club collectors
+│   ├── processors/          # Squad vacuum / filtering logic
+│   └── scoring/             # MatrixEngine + Financial/Tactical/Injury scorers
+├── tests/                   # Unit and integration tests (mock-backed)
+├── data/
+│   ├── mock/                 # Fixture data used by tests and --mock runs
+│   └── cache/                 # CacheManager output (gitignored)
+├── docs/
+│   ├── CODEBASE_MAP.md       # AST index of src/ — consult before searching code
+│   └── LEAGUE_RUNNER.md      # League-scale operations guide
 └── README.md
 ```
 
@@ -128,7 +165,7 @@ Sports Club Assessor/
 
 ## Contributing
 
-Please read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before contributing. All data collection and processing code **must** be strictly deterministic — no LLM or probabilistic logic in the pipeline.
+Consult [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md) before searching the codebase. All data collection and processing code **must** be strictly deterministic — no LLM or probabilistic logic in the pipeline.
 
 ---
 
