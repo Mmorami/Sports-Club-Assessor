@@ -310,6 +310,66 @@ class SquadVacuumResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# SquadStatsSummary / ClubAnalysisReport  (derived / computed -- pipeline output)
+# ---------------------------------------------------------------------------
+
+
+class SquadStatsSummary(BaseModel):
+    """
+    Aggregated performance figures across a club's squad.
+
+    Not a persisted entity -- produced on demand by ``EFLDataPipeline``.
+
+    Fields
+    ------
+    total_goals           : Sum of goals across all matched player-season stats.
+    total_assists         : Sum of assists across all matched player-season stats.
+    total_minutes_played  : Sum of minutes played across all matched player-season stats.
+    average_age           : Mean age across the current squad roster.
+    squad_size            : Number of players in the current squad roster.
+    """
+
+    model_config = {"frozen": True}
+
+    total_goals: int = Field(..., ge=0, description="Sum of goals across squad stats")
+    total_assists: int = Field(..., ge=0, description="Sum of assists across squad stats")
+    total_minutes_played: int = Field(
+        ..., ge=0, description="Sum of minutes played across squad stats"
+    )
+    average_age: float = Field(..., ge=0.0, description="Mean age across the squad roster")
+    squad_size: int = Field(..., ge=0, description="Number of players in the squad roster")
+
+
+class ClubAnalysisReport(BaseModel):
+    """
+    Unified per-club output of ``EFLDataPipeline.run_club_pipeline``.
+
+    Not a persisted entity -- produced on demand by the integration pipeline.
+
+    Fields
+    ------
+    club_info             : The club's core context (roster, manager, transfers).
+    squad_stats_summary   : Aggregated goals/assists/minutes/age across the squad.
+    injury_risk_score     : Normalized 0.0-1.0 score derived from days/games missed.
+    transfer_balance      : Net transfer position in GBP (outgoing fees minus
+                            incoming fees; positive = net income from sales).
+    """
+
+    model_config = {"frozen": True}
+
+    club_info: Club = Field(..., description="Club core context")
+    squad_stats_summary: SquadStatsSummary = Field(
+        ..., description="Aggregated squad performance figures"
+    )
+    injury_risk_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Normalized injury risk score (0.0-1.0)"
+    )
+    transfer_balance: float = Field(
+        ..., description="Net transfer position in GBP (outgoing fees minus incoming fees)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API surface
 # ---------------------------------------------------------------------------
 
@@ -326,4 +386,6 @@ __all__ = [
     "Club",
     # Derived
     "SquadVacuumResult",
+    "SquadStatsSummary",
+    "ClubAnalysisReport",
 ]
