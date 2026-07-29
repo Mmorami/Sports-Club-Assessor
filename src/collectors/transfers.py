@@ -33,13 +33,16 @@ Usage
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+from pydantic import ValidationError
 
 from src.schemas import Transfer, TransferDirection, TransferType
 from src.collectors.base import BaseCollector, NetworkError, ParseError
@@ -388,12 +391,31 @@ class TransferCollector(BaseCollector):
         season_year: int = 2024,
         timeout: int = BaseCollector.DEFAULT_TIMEOUT,
         polite_delay: float = 1.5,
+        mock_file: Optional[str] = None,
     ) -> None:
         super().__init__(timeout=timeout)
         if not _SEASON_RE.match(str(season_year)):
             raise ValueError(f"season_year must be a 4-digit integer, got {season_year!r}")
         self._season_year = season_year
         self._polite_delay = polite_delay
+        self._mock_file = Path(mock_file) if mock_file else None
+
+    def _load_mock_transfers(self) -> List[Transfer]:
+        """Load and validate ``Transfer`` fixtures from ``self._mock_file``."""
+        with open(self._mock_file, "r", encoding="utf-8") as f:
+            raw_records: List[Dict[str, Any]] = json.load(f)
+
+        transfers: List[Transfer] = []
+        for raw in raw_records:
+            try:
+                transfers.append(Transfer(**raw))
+            except ValidationError as exc:
+                raise ParseError(
+                    "Failed to validate transfer record",
+                    field="Transfer",
+                    raw=raw,
+                ) from exc
+        return transfers
 
     # ------------------------------------------------------------------
     # Public interface
@@ -422,6 +444,9 @@ class TransferCollector(BaseCollector):
         ParseError
             If the page structure has changed enough to prevent any parsing.
         """
+        if self._mock_file is not None:
+            return self._load_mock_transfers()
+
         numeric_id, slug = self._resolve_club(club_id)
         url = self._build_url(numeric_id, slug)
 
@@ -542,5 +567,6 @@ class TransferCollector(BaseCollector):
         return (
             f"TransferCollector("
             f"season_year={self._season_year}, "
-            f"timeout={self._timeout})"
+            f"timeout={self._timeout}, "
+            f"mock_file={self._mock_file!r})"
         )

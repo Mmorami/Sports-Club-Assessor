@@ -43,6 +43,13 @@ class EFLDataPipeline:
                           Defaults to ``StatsCollector()``.
     medical_collector   : Collector providing injury history.
                           Defaults to ``MedicalCollector()``.
+    use_mock           : When ``True`` (default) and a collector is not
+                          explicitly injected, ``StatsCollector`` and
+                          ``TransferCollector`` are constructed with their
+                          ``data/mock/*.json`` fixtures instead of making
+                          live HTTP requests. ``ManagerClubCollector`` and
+                          ``MedicalCollector`` already default to local
+                          mock fixtures regardless of this flag.
     """
 
     def __init__(
@@ -51,10 +58,19 @@ class EFLDataPipeline:
         transfer_collector: Optional[BaseCollector] = None,
         stats_collector: Optional[BaseCollector] = None,
         medical_collector: Optional[BaseCollector] = None,
+        use_mock: bool = True,
     ) -> None:
         self._manager_collector = manager_collector or ManagerClubCollector()
-        self._transfer_collector = transfer_collector or TransferCollector()
-        self._stats_collector = stats_collector or StatsCollector()
+        self._transfer_collector = transfer_collector or (
+            TransferCollector(mock_file="data/mock/transfers_mock.json")
+            if use_mock
+            else TransferCollector()
+        )
+        self._stats_collector = stats_collector or (
+            StatsCollector(mock_file="data/mock/stats_mock.json")
+            if use_mock
+            else StatsCollector()
+        )
         self._medical_collector = medical_collector or MedicalCollector()
 
     def run_club_pipeline(self, club_id: str) -> ClubAnalysisReport:
