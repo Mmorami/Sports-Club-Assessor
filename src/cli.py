@@ -15,6 +15,7 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
+from src.league_pipeline import LeaguePipeline
 from src.pipeline import EFLDataPipeline
 from src.reporter import ClubReporter
 from src.scoring.matrix_engine import MatrixEngine
@@ -52,6 +53,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional path (file or directory) to export a Markdown report to.",
     )
 
+    league_parser = subparsers.add_parser(
+        "analyze-league",
+        help="Run a full league analysis and print league table rankings.",
+    )
+    league_parser.add_argument(
+        "--league", required=True, help="League identifier (e.g. championship)."
+    )
+    league_parser.add_argument(
+        "--season", required=True, help="Season identifier (e.g. 2026-2027)."
+    )
+    league_parser.add_argument(
+        "--force-refresh",
+        dest="use_cache",
+        action="store_false",
+        default=True,
+        help="Bypass the cache and re-run collection for every club.",
+    )
+
     return parser
 
 
@@ -72,12 +91,34 @@ def run_analyze(club_id: str, use_mock: bool, output: Optional[str]) -> int:
     return 0
 
 
+def run_analyze_league(league: str, season: str, use_cache: bool) -> int:
+    pipeline = LeaguePipeline()
+    league_report = pipeline.run_league(league, season, use_cache=use_cache)
+
+    print(f"League Table: {league} {season}\n")
+    header = f"{'Rank':<6}{'Club':<28}{'Score':<10}{'Percentile':<12}"
+    print(header)
+    print("-" * len(header))
+    for standing in league_report.standings:
+        print(
+            f"{standing.league_rank:<6}"
+            f"{standing.club_name:<28}"
+            f"{standing.overall_score:<10.2f}"
+            f"{standing.percentile:<12.2f}"
+        )
+
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
         return run_analyze(args.club_id, args.mock, args.output)
+
+    if args.command == "analyze-league":
+        return run_analyze_league(args.league, args.season, args.use_cache)
 
     parser.print_help()
     return 1
