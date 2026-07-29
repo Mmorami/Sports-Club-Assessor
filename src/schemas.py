@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -381,6 +381,41 @@ class ClubAnalysisReport(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# FinalClubRanking  (derived / computed -- MatrixEngine output)
+# ---------------------------------------------------------------------------
+
+
+class FinalClubRanking(BaseModel):
+    """
+    Final aggregated club evaluation produced by ``MatrixEngine``.
+
+    Not a persisted entity -- produced on demand by the scoring layer.
+
+    Fields
+    ------
+    club_id             : References ``Club.id``.
+    overall_score       : Normalized overall rank score (0.0-100.0).
+    breakdown           : Raw 0.0-100.0 score per category
+                          (e.g. ``{"injury": 82.0, "financial": 60.0}``).
+    weighted_components : Each category's contribution to ``overall_score``
+                          (raw score * category weight).
+    """
+
+    model_config = {"frozen": True}
+
+    club_id: str = Field(..., min_length=1, description="References Club.id")
+    overall_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Normalized overall rank score (0.0-100.0)"
+    )
+    breakdown: Dict[str, float] = Field(
+        ..., description="Raw 0.0-100.0 score per category"
+    )
+    weighted_components: Dict[str, float] = Field(
+        ..., description="Each category's weighted contribution to overall_score"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API surface
 # ---------------------------------------------------------------------------
 
@@ -399,4 +434,5 @@ __all__ = [
     "SquadVacuumResult",
     "SquadStatsSummary",
     "ClubAnalysisReport",
+    "FinalClubRanking",
 ]
