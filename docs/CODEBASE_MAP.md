@@ -3,6 +3,12 @@
 **Source Directory:** `src/`  
 
 ---
+### `src/cli.py`
+  > *cli.py*
+  - `def _build_parser()`
+  - `def run_analyze(club_id, use_mock, output)`
+  - `def main(argv)`
+
 ### `src/collectors/__init__.py`
   > *src/collectors — deterministic data-collection modules.*
 
@@ -87,6 +93,13 @@
   > *squad_processor.py*
   - `def filter_relevant_transfers(transfers, player_stats, min_minutes)`
   - `def calculate_squad_vacuum(transfers_out, player_stats)`
+
+### `src/reporter.py`
+  > *reporter.py*
+  - `class ClubReporter`
+    - `def __init__(self, console)`
+    - `def print_terminal_summary(self, ranking)`
+    - `def export_markdown_report(self, ranking, output_path)`
 
 ### `src/schemas.py`
   > *schemas.py*
