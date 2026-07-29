@@ -1,0 +1,38 @@
+[
+  {
+    "player_id": "p_001",
+    "season": "2023/2024",
+    "minutes_played": 3120,
+    "goals": 18,
+    "assists": 6,
+    "rating": 7.4,
+    "matches_started": 35
+  },
+  {
+    "player_id": "p_001",
+    "season": "2024/2025",
+    "minutes_played": 3350,
+    "goals": 21,
+    "assists": 5,
+    "rating": 7.6,
+    "matches_started": 37
+  },
+  {
+    "player_id": "p_002",
+    "season": "2023/2024",
+    "minutes_played": 2450,
+    "goals": 2,
+    "assists": 9,
+    "rating": 6.9,
+    "matches_started": 28
+  },
+  {
+    "player_id": "p_002",
+    "season": "2024/2025",
+    "minutes_played": 2870,
+    "goals": 3,
+    "assists": 11,
+    "rating": 7.1,
+    "matches_started": 32
+  }
+]
