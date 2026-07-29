@@ -1,0 +1,34 @@
+[
+  {
+    "player_id": "p_001",
+    "direction": "IN",
+    "fee": 4500000.0,
+    "previous_club": "Swansea City",
+    "current_club": "Leeds United",
+    "transfer_type": "PERMANENT"
+  },
+  {
+    "player_id": "p_002",
+    "direction": "IN",
+    "fee": null,
+    "previous_club": "Werder Bremen",
+    "current_club": "Leeds United",
+    "transfer_type": "FREE"
+  },
+  {
+    "player_id": "p_003",
+    "direction": "OUT",
+    "fee": 2000000.0,
+    "previous_club": "Leeds United",
+    "current_club": "Middlesbrough",
+    "transfer_type": "PERMANENT"
+  },
+  {
+    "player_id": "p_004",
+    "direction": "OUT",
+    "fee": null,
+    "previous_club": "Leeds United",
+    "current_club": "Cardiff City",
+    "transfer_type": "LOAN"
+  }
+]

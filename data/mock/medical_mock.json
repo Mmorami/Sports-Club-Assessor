@@ -1,0 +1,23 @@
+[
+  {
+    "player_id": "p_001",
+    "injury_type": "Hamstring Strain",
+    "days_out": 21,
+    "games_missed": 4,
+    "season": "2023/2024"
+  },
+  {
+    "player_id": "p_002",
+    "injury_type": "ACL Tear",
+    "days_out": 210,
+    "games_missed": 34,
+    "season": "2023/2024"
+  },
+  {
+    "player_id": "p_002",
+    "injury_type": "Ankle Sprain",
+    "days_out": 14,
+    "games_missed": 3,
+    "season": "2024/2025"
+  }
+]
