@@ -1,0 +1,87 @@
+"""
+cli.py
+======
+Command-line entry point for running a full club analysis: pipeline
+collection -> matrix scoring -> reporting.
+
+Usage
+-----
+    python -m src.cli analyze --club-id c_399 --mock --output reports/c_399_report.md
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import Optional, Sequence
+
+from src.pipeline import EFLDataPipeline
+from src.reporter import ClubReporter
+from src.scoring.matrix_engine import MatrixEngine
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="club-assessor",
+        description="Sports Club Assessor CLI",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    analyze_parser = subparsers.add_parser(
+        "analyze", help="Run a full club analysis and produce a report."
+    )
+    analyze_parser.add_argument(
+        "--club-id", required=True, help="Club identifier to analyze (e.g. c_399)."
+    )
+    analyze_parser.add_argument(
+        "--mock",
+        dest="mock",
+        action="store_true",
+        default=True,
+        help="Use local mock fixtures instead of live network requests (default: True).",
+    )
+    analyze_parser.add_argument(
+        "--no-mock",
+        dest="mock",
+        action="store_false",
+        help="Disable mock fixtures and use live network collectors.",
+    )
+    analyze_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional path (file or directory) to export a Markdown report to.",
+    )
+
+    return parser
+
+
+def run_analyze(club_id: str, use_mock: bool, output: Optional[str]) -> int:
+    pipeline = EFLDataPipeline(use_mock=use_mock)
+    report = pipeline.run_club_pipeline(club_id)
+
+    engine = MatrixEngine()
+    ranking = engine.evaluate_club(report)
+
+    reporter = ClubReporter()
+    reporter.print_terminal_summary(ranking)
+
+    if output:
+        file_path = reporter.export_markdown_report(ranking, output)
+        print(f"\nMarkdown report written to: {file_path}")
+
+    return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if args.command == "analyze":
+        return run_analyze(args.club_id, args.mock, args.output)
+
+    parser.print_help()
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
