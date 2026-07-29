@@ -71,12 +71,15 @@ Usage
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+from pydantic import ValidationError
 
 from src.schemas import PlayerStats
 from src.collectors.base import BaseCollector, NetworkError, ParseError
@@ -304,10 +307,29 @@ class StatsCollector(BaseCollector):
         club_id: str = "leeds-united",
         season_years: Optional[List[int]] = None,
         timeout: int = BaseCollector.DEFAULT_TIMEOUT,
+        mock_file: Optional[str] = None,
     ) -> None:
         super().__init__(timeout=timeout)
         self._club_id = club_id
         self._season_years = season_years or _last_two_season_years()
+        self._mock_file = Path(mock_file) if mock_file else None
+
+    def _load_mock_stats(self) -> List[PlayerStats]:
+        """Load and validate ``PlayerStats`` fixtures from ``self._mock_file``."""
+        with open(self._mock_file, "r", encoding="utf-8") as f:
+            raw_records: List[Dict[str, Any]] = json.load(f)
+
+        stats: List[PlayerStats] = []
+        for raw in raw_records:
+            try:
+                stats.append(PlayerStats(**raw))
+            except ValidationError as exc:
+                raise ParseError(
+                    "Failed to validate player stats record",
+                    field="PlayerStats",
+                    raw=raw,
+                ) from exc
+        return stats
 
     # ------------------------------------------------------------------
     # Public interface
@@ -337,6 +359,9 @@ class StatsCollector(BaseCollector):
         ParseError
             If *club_id* cannot be resolved to a known club.
         """
+        if self._mock_file is not None:
+            return self._load_mock_stats()
+
         numeric_id, slug = self._resolve_club(club_id)
         all_stats: List[PlayerStats] = []
 
@@ -460,4 +485,7 @@ class StatsCollector(BaseCollector):
 
     def __repr__(self) -> str:
         seasons = ", ".join(_season_label(y) for y in self._season_years)
-        return f"StatsCollector(club_id={self._club_id!r}, seasons=[{seasons}], timeout={self._timeout})"
+        return (
+            f"StatsCollector(club_id={self._club_id!r}, seasons=[{seasons}], "
+            f"timeout={self._timeout}, mock_file={self._mock_file!r})"
+        )

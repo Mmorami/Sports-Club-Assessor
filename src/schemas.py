@@ -246,6 +246,11 @@ class Club(BaseModel):
     id: str = Field(..., min_length=1, description="Unique club identifier")
     name: str = Field(..., min_length=1, description="Official club name")
     manager: str = Field(..., min_length=1, description="Current head coach / manager")
+    manager_tenure_years: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Years the current manager has been in charge, if known",
+    )
     squad_list: List[Player] = Field(
         default_factory=list, description="Current squad roster"
     )
@@ -366,6 +371,12 @@ class ClubAnalysisReport(BaseModel):
     )
     transfer_balance: float = Field(
         ..., description="Net transfer position in GBP (outgoing fees minus incoming fees)"
+    )
+    performance_trend: Optional[float] = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Normalized performance trend, if known (-1.0 declining, 0.0 flat, 1.0 improving)",
     )
 
 
