@@ -3,10 +3,20 @@
 **Source Directory:** `src/`  
 
 ---
+### `src/cache.py`
+  > *cache.py*
+  - `class CacheManager`
+    - `def __init__(self, league, season, base_dir)`
+    - `def _path(self, key)`
+    - `def get(self, key)`
+    - `def set(self, key, data)`
+    - `def is_expired(self, key, ttl_hours)`
+
 ### `src/cli.py`
   > *cli.py*
   - `def _build_parser()`
   - `def run_analyze(club_id, use_mock, output)`
+  - `def run_analyze_league(league, season, use_cache)`
   - `def main(argv)`
 
 ### `src/collectors/__init__.py`
@@ -80,6 +90,15 @@
     - `def _extract_club_name(html)`
     - `def __repr__(self)`
 
+### `src/league_pipeline.py`
+  > *league_pipeline.py*
+  - `class LeaguePipeline`
+    - `def __init__(self, club_pipeline, matrix_engine, registry)`
+    - `def _club_ids_for(self, league_id, season)`
+    - `def run_league(self, league_id, season, use_cache)`
+    - `def _load_report(self, club_id, cache, use_cache)`
+    - `def _build_league_report(league_id, season, pairs)`
+
 ### `src/pipeline.py`
   > *pipeline.py*
   - `class EFLDataPipeline`
@@ -117,6 +136,8 @@
   - `class SquadStatsSummary`
   - `class ClubAnalysisReport`
   - `class FinalClubRanking`
+  - `class LeagueClubStanding`
+  - `class LeagueAnalysisReport`
 
 ### `src/scoring/__init__.py`
   > *src/scoring — post-pipeline analysis scorers operating on ClubAnalysisReport.*

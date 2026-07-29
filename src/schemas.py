@@ -416,6 +416,68 @@ class FinalClubRanking(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# LeagueClubStanding / LeagueAnalysisReport  (derived -- LeaguePipeline output)
+# ---------------------------------------------------------------------------
+
+
+class LeagueClubStanding(BaseModel):
+    """
+    A single club's position within a league-wide ranking.
+
+    Not a persisted entity -- produced on demand by ``LeaguePipeline``.
+
+    Fields
+    ------
+    club_id        : References ``Club.id``.
+    club_name      : Official club name, for display purposes.
+    overall_score  : The club's ``FinalClubRanking.overall_score`` (0.0-100.0).
+    breakdown      : Raw 0.0-100.0 score per category, copied from
+                      ``FinalClubRanking.breakdown``.
+    league_rank    : 1-indexed rank within the league (1 = highest score).
+    percentile     : Percentile position within the league (0.0-100.0,
+                      100.0 = top of the league).
+    """
+
+    model_config = {"frozen": True}
+
+    club_id: str = Field(..., min_length=1, description="References Club.id")
+    club_name: str = Field(..., min_length=1, description="Official club name")
+    overall_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Normalized overall rank score (0.0-100.0)"
+    )
+    breakdown: Dict[str, float] = Field(
+        ..., description="Raw 0.0-100.0 score per category"
+    )
+    league_rank: int = Field(..., ge=1, description="1-indexed rank within the league")
+    percentile: float = Field(
+        ..., ge=0.0, le=100.0, description="Percentile position within the league"
+    )
+
+
+class LeagueAnalysisReport(BaseModel):
+    """
+    Unified output of ``LeaguePipeline.run_league`` across all clubs in a
+    league season.
+
+    Not a persisted entity -- produced on demand by the league pipeline.
+
+    Fields
+    ------
+    league_id  : League identifier (e.g. ``"championship"``).
+    season     : Season identifier (e.g. ``"2026-2027"``).
+    standings  : Clubs ordered by ``league_rank`` ascending (best first).
+    """
+
+    model_config = {"frozen": True}
+
+    league_id: str = Field(..., min_length=1, description="League identifier")
+    season: str = Field(..., min_length=1, description="Season identifier")
+    standings: List[LeagueClubStanding] = Field(
+        ..., description="Clubs ordered by league_rank ascending"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API surface
 # ---------------------------------------------------------------------------
 
@@ -435,4 +497,6 @@ __all__ = [
     "SquadStatsSummary",
     "ClubAnalysisReport",
     "FinalClubRanking",
+    "LeagueClubStanding",
+    "LeagueAnalysisReport",
 ]
