@@ -5,25 +5,27 @@ Orchestrates ``EFLDataPipeline`` and ``MatrixEngine`` across every club in a
 league season, using ``CacheManager`` to avoid redundant collector calls
 (and the live HTTP scraping behind them) on repeat runs.
 
-``LEAGUE_CLUB_REGISTRY`` is a placeholder mapping of league/season to club
-ids. No real league-membership data source exists in this codebase yet --
-replace this registry (or inject a custom one via the constructor) once one
-does.
+League membership is fetched live from Transfermarkt via ``LeagueCollector``
+and cached annually so it stays current with promotions/relegations.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+import logging
+from typing import List, Optional
 
 from src.cache import CacheManager
+from src.collectors.league import LeagueCollector
 from src.pipeline import EFLDataPipeline
 from src.schemas import ClubAnalysisReport, LeagueAnalysisReport, LeagueClubStanding
 from src.scoring.matrix_engine import MatrixEngine
 
-LEAGUE_CLUB_REGISTRY: Dict[str, Dict[str, List[str]]] = {
-    "championship": {
-        "2026-2027": ["c_399"],
-    },
+logger = logging.getLogger(__name__)
+
+# Map Transfermarkt league IDs to league names
+LEAGUE_CODES = {
+    "championship": "GB2",
+    "premier-league": "GB1",
 }
 
 
@@ -33,33 +35,95 @@ class LeaguePipeline:
     a league-wide ``LeagueAnalysisReport`` with relative rankings and
     percentile scores.
 
+    League membership is fetched live from Transfermarkt via ``LeagueCollector``
+    and cached annually, ensuring it stays current with promotions/relegations.
+
     Parameters
     ----------
     club_pipeline : Pipeline used to collect each club's data. Defaults to
-                    ``EFLDataPipeline()``.
+                    ``EFLDataPipeline(use_mock=use_mock)``.
     matrix_engine : Scorer used to turn each ``ClubAnalysisReport`` into a
                     ``FinalClubRanking``. Defaults to ``MatrixEngine()``.
-    registry      : Mapping of ``league_id -> season -> [club_id, ...]``.
-                    Defaults to ``LEAGUE_CLUB_REGISTRY``.
+    league_collector : Collector for fetching current league standings.
+                       Defaults to ``LeagueCollector()`` for live Transfermarkt
+                       data. Pass a custom instance to inject test doubles.
+    use_mock      : When True (default), use local mock fixtures. When False,
+                    fetch live data from Transfermarkt.
     """
 
     def __init__(
         self,
         club_pipeline: Optional[EFLDataPipeline] = None,
         matrix_engine: Optional[MatrixEngine] = None,
-        registry: Optional[Dict[str, Dict[str, List[str]]]] = None,
+        league_collector: Optional[LeagueCollector] = None,
+        use_mock: bool = True,
     ) -> None:
-        self._club_pipeline = club_pipeline or EFLDataPipeline()
+        self._club_pipeline = club_pipeline or EFLDataPipeline(use_mock=use_mock)
         self._matrix_engine = matrix_engine or MatrixEngine()
-        self._registry = registry or LEAGUE_CLUB_REGISTRY
+        self._league_collector = league_collector
+        self._use_mock = use_mock
 
-    def _club_ids_for(self, league_id: str, season: str) -> List[str]:
+    def _club_ids_for(
+        self, league_id: str, season: str, use_cache: bool = True
+    ) -> List[str]:
+        """
+        Fetch club IDs for a league/season from cache or live Transfermarkt.
+
+        Parameters
+        ----------
+        league_id : str
+            League identifier (e.g., 'championship').
+        season : str
+            Season identifier (e.g., '2026-2027').
+        use_cache : bool
+            Whether to use cached league data (default True). Set to False to
+            force a fresh fetch from Transfermarkt.
+
+        Returns
+        -------
+        List[str]
+            List of club IDs for the league.
+
+        Raises
+        ------
+        ValueError
+            If the league is not supported.
+        """
+        cache_key = f"{league_id}_{season}"
+        cache = CacheManager(league_id, season)
+
+        # Check cache first (1 year TTL = 8760 hours)
+        if use_cache and not cache.is_expired(cache_key, ttl_hours=8760):
+            cached = cache.get(cache_key)
+            if cached and isinstance(cached, dict):
+                club_ids = cached.get("club_ids", [])
+                if club_ids:
+                    logger.info(
+                        f"Using cached league data for {league_id}/{season} "
+                        f"({len(club_ids)} clubs)"
+                    )
+                    return club_ids
+
+        # Fetch from Transfermarkt via LeagueCollector
+        tm_league_id = LEAGUE_CODES.get(league_id)
+        if not tm_league_id:
+            raise ValueError(f"Unsupported league: {league_id!r}")
+
+        collector = self._league_collector or LeagueCollector(tm_league_id)
         try:
-            return self._registry[league_id][season]
-        except KeyError as exc:
+            club_ids = collector.fetch_data()
+        except Exception as e:
+            logger.error(f"Failed to fetch league data from Transfermarkt: {e}")
             raise ValueError(
-                f"No club registry entry for league={league_id!r} season={season!r}"
-            ) from exc
+                f"Failed to fetch clubs for league={league_id!r} season={season!r}"
+            ) from e
+
+        # Cache the result
+        cache.set(cache_key, {"club_ids": club_ids, "season": season})
+        logger.info(
+            f"Fetched {len(club_ids)} clubs for {league_id}/{season} from Transfermarkt"
+        )
+        return club_ids
 
     def run_league(
         self, league_id: str, season: str, use_cache: bool = True
@@ -68,8 +132,18 @@ class LeaguePipeline:
         Run the full analysis pipeline for every club in *league_id* /
         *season*, returning a ``LeagueAnalysisReport`` ranked by overall
         score.
+
+        Parameters
+        ----------
+        league_id : str
+            League identifier (e.g., 'championship').
+        season : str
+            Season identifier (e.g., '2026-2027').
+        use_cache : bool
+            If True, use cached data for both league membership and club
+            analysis. If False, force fresh fetches from Transfermarkt.
         """
-        club_ids = self._club_ids_for(league_id, season)
+        club_ids = self._club_ids_for(league_id, season, use_cache=use_cache)
         cache = CacheManager(league_id, season)
 
         pairs = []
