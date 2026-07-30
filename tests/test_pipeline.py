@@ -4,11 +4,13 @@ tests/test_pipeline.py
 Unit test for ``EFLDataPipeline`` using mock fixtures only -- no live HTTP
 requests are made.
 
-``ManagerClubCollector`` and ``MedicalCollector`` already read from
-``data/mock/`` fixtures directly. ``StatsCollector`` and ``TransferCollector``
-scrape Transfermarkt live with no mock mode, so this test injects lightweight
-fake doubles that read ``data/mock/stats_mock.json`` and
-``data/mock/transfers_mock.json`` instead, satisfying the pipeline's
+``ManagerClubCollector`` is explicitly given ``mock_path`` so it reads from
+``data/mock/`` instead of hitting Transfermarkt live (live mode is now the
+default when no ``mock_path`` is supplied). ``MedicalCollector`` already
+reads from ``data/mock/`` directly. ``StatsCollector`` and
+``TransferCollector`` scrape Transfermarkt live with no mock mode, so this
+test injects lightweight fake doubles that read ``data/mock/stats_mock.json``
+and ``data/mock/transfers_mock.json`` instead, satisfying the pipeline's
 collector interface without any network access.
 """
 
@@ -58,7 +60,7 @@ class _MockTransferCollector(BaseCollector):
 
 def _build_pipeline() -> EFLDataPipeline:
     return EFLDataPipeline(
-        manager_collector=ManagerClubCollector(),
+        manager_collector=ManagerClubCollector(mock_path=_MOCK_DIR / "manager_club_mock.json"),
         transfer_collector=_MockTransferCollector(),
         stats_collector=_MockStatsCollector(),
         medical_collector=MedicalCollector(),
