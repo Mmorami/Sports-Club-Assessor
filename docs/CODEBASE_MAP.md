@@ -16,7 +16,7 @@
   > *cli.py*
   - `def _build_parser()`
   - `def run_analyze(club_id, use_mock, output)`
-  - `def run_analyze_league(league, season, use_cache)`
+  - `def run_analyze_league(league, season, use_cache, use_mock)`
   - `def main(argv)`
 
 ### `src/collectors/__init__.py`
@@ -37,13 +37,32 @@
     - `def timeout(self)`
     - `def __repr__(self)`
 
+### `src/collectors/league.py`
+  > *league.py*
+  - `class LeagueCollector`
+    - `def __init__(self, league_id, timeout, polite_delay)`
+    - `def fetch_data(self, club_id)`
+    - `def _fetch_league_standings(self)`
+    - `def _parse_standings_table(html, source_url)`
+    - `def __repr__(self)`
+
 ### `src/collectors/manager.py`
   > *manager.py*
+  - `def _parse_market_value(raw)`
+  - `def _parse_age(raw)`
+  - `def _parse_squad_row(row)`
+  - `def _parse_squad_page(html)`
+  - `def _parse_manager_name(html)`
+  - `def _extract_club_name(html)`
   - `class ManagerClubCollector`
     - `def __init__(self, mock_path, timeout)`
     - `def _load_clubs(self)`
     - `def fetch_data(self, club_id)`
     - `def fetch_club_context(self, club_id)`
+    - `def _fetch_live_club(self, club_id)`
+    - `def _resolve_club(club_id)`
+    - `def _get_html(self, url)`
+    - `def __repr__(self)`
 
 ### `src/collectors/medical.py`
   > *medical.py*
@@ -93,8 +112,8 @@
 ### `src/league_pipeline.py`
   > *league_pipeline.py*
   - `class LeaguePipeline`
-    - `def __init__(self, club_pipeline, matrix_engine, registry)`
-    - `def _club_ids_for(self, league_id, season)`
+    - `def __init__(self, club_pipeline, matrix_engine, league_collector, use_mock)`
+    - `def _club_ids_for(self, league_id, season, use_cache)`
     - `def run_league(self, league_id, season, use_cache)`
     - `def _load_report(self, club_id, cache, use_cache)`
     - `def _build_league_report(league_id, season, pairs)`

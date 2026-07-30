@@ -424,20 +424,26 @@ class StatsCollector(BaseCollector):
 
     @staticmethod
     def _resolve_club(club_id: str) -> Tuple[str, str]:
-        """Return ``(numeric_id, slug)`` for the given *club_id*, reusing ``KNOWN_CLUBS``."""
-        if club_id.isdigit():
-            slug = next(
-                (s for s, cid in KNOWN_CLUBS.items() if cid == club_id),
-                club_id,
-            )
-            return club_id, slug
+        """
+        Return ``(numeric_id, slug)`` for the given *club_id*, reusing
+        ``KNOWN_CLUBS``. Accepts a numeric Transfermarkt ID, a slug, or an
+        internal ``"c_<numeric>"`` id (e.g. ``"c_1003"``).
+        """
+        raw = club_id[2:] if club_id.startswith("c_") else club_id
 
-        if club_id in KNOWN_CLUBS:
-            return KNOWN_CLUBS[club_id], club_id
+        if raw.isdigit():
+            slug = next(
+                (s for s, cid in KNOWN_CLUBS.items() if cid == raw),
+                raw,
+            )
+            return raw, slug
+
+        if raw in KNOWN_CLUBS:
+            return KNOWN_CLUBS[raw], raw
 
         raise ParseError(
             f"Unknown club_id {club_id!r}. "
-            "Provide a numeric Transfermarkt ID or a key from KNOWN_CLUBS.",
+            "Provide a numeric Transfermarkt ID, an internal 'c_<id>' id, or a key from KNOWN_CLUBS.",
             field="club_id",
             raw=club_id,
         )

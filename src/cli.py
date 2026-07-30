@@ -64,11 +64,24 @@ def _build_parser() -> argparse.ArgumentParser:
         "--season", required=True, help="Season identifier (e.g. 2026-2027)."
     )
     league_parser.add_argument(
+        "--mock",
+        dest="mock",
+        action="store_true",
+        default=True,
+        help="Use local mock fixtures instead of live network requests (default: True).",
+    )
+    league_parser.add_argument(
+        "--no-mock",
+        dest="mock",
+        action="store_false",
+        help="Disable mock fixtures and use live network collectors (Transfermarkt).",
+    )
+    league_parser.add_argument(
         "--force-refresh",
         dest="use_cache",
         action="store_false",
         default=True,
-        help="Bypass the cache and re-run collection for every club.",
+        help="Bypass the cache and re-fetch league standings and club data from Transfermarkt.",
     )
 
     return parser
@@ -91,8 +104,8 @@ def run_analyze(club_id: str, use_mock: bool, output: Optional[str]) -> int:
     return 0
 
 
-def run_analyze_league(league: str, season: str, use_cache: bool) -> int:
-    pipeline = LeaguePipeline()
+def run_analyze_league(league: str, season: str, use_cache: bool, use_mock: bool) -> int:
+    pipeline = LeaguePipeline(use_mock=use_mock)
     league_report = pipeline.run_league(league, season, use_cache=use_cache)
 
     print(f"League Table: {league} {season}\n")
@@ -118,7 +131,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return run_analyze(args.club_id, args.mock, args.output)
 
     if args.command == "analyze-league":
-        return run_analyze_league(args.league, args.season, args.use_cache)
+        return run_analyze_league(args.league, args.season, args.use_cache, args.mock)
 
     parser.print_help()
     return 1
